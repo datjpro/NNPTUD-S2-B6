@@ -16,7 +16,7 @@ async function authenticateToken(req, res, next) {
 
     const user = await User.findOne({
       _id: payload.sub,
-      deletedAt: null
+      isDeleted: false
     }).populate('role');
 
     if (!user) {

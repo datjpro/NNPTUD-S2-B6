@@ -14,7 +14,9 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
+    lowercase: true,
+    match: [/^\S+@\S+\.\S+$/, "Invalid email format"]
   },
   fullName: {
     type: String,
@@ -30,16 +32,23 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Role'
+    ref: 'Role',
+    required: true
   },
   loginCount: {
     type: Number,
     default: 0,
-    min: 0
+    min: [0, "Login count cannot be negative"]
   },
-  deletedAt: {
-    type: Date,
-    default: null
+  isDeleted: {
+    type: Boolean,
+    default: false
+  },
+  forgotPasswordToken: {
+    type: String
+  },
+  forgotPasswordTokenExp: {
+    type: Date
   }
 }, {
   timestamps: true

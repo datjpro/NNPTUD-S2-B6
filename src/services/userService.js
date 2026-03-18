@@ -4,11 +4,11 @@ const jwt = require('jsonwebtoken');
 const { JWT_SECRET, JWT_EXPIRES_IN } = require('../config/auth');
 
 async function getAllUsers() {
-  return User.find({ deletedAt: null }).populate('role');
+  return User.find({ isDeleted: false }).populate('role');
 }
 
 async function getUserById(id) {
-  return User.findOne({ _id: id, deletedAt: null }).populate('role');
+  return User.findOne({ _id: id, isDeleted: false }).populate('role');
 }
 
 async function createUser(payload) {
@@ -24,7 +24,7 @@ async function updateUser(id, payload) {
   }
 
   return User.findOneAndUpdate(
-    { _id: id, deletedAt: null },
+    { _id: id, isDeleted: false },
     updatedPayload,
     { new: true }
   ).populate('role');
@@ -32,14 +32,14 @@ async function updateUser(id, payload) {
 
 async function softDeleteUser(id) {
   return User.findOneAndUpdate(
-    { _id: id, deletedAt: null },
-    { deletedAt: new Date() },
+    { _id: id, isDeleted: false },
+    { isDeleted: true },
     { new: true }
   );
 }
 
 async function setUserStatusByEmailAndUsername(email, username, status) {
-  const user = await User.findOne({ email, username, deletedAt: null }).populate('role');
+  const user = await User.findOne({ email, username, isDeleted: false }).populate('role');
   if (!user) {
     return null;
   }
@@ -51,7 +51,7 @@ async function setUserStatusByEmailAndUsername(email, username, status) {
 
 async function checkLogin(identifier, password) {
   const user = await User.findOne({
-    deletedAt: null,
+    isDeleted: false,
     $or: [
       { email: identifier },
       { username: identifier }
@@ -96,11 +96,11 @@ async function checkLogin(identifier, password) {
 }
 
 async function getCurrentUser(userId) {
-  return User.findOne({ _id: userId, deletedAt: null }).populate('role');
+  return User.findOne({ _id: userId, isDeleted: false }).populate('role');
 }
 
 async function changePassword(userId, oldPassword, newPassword) {
-  const user = await User.findOne({ _id: userId, deletedAt: null }).populate('role');
+  const user = await User.findOne({ _id: userId, isDeleted: false }).populate('role');
 
   if (!user) {
     const error = new Error('User not found');

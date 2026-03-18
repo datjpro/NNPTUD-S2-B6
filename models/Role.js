@@ -10,9 +10,9 @@ const roleSchema = new mongoose.Schema({
     type: String,
     default: ""
   },
-  deletedAt: {
-    type: Date,
-    default: null
+  isDeleted: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true
