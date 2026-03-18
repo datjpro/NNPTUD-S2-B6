@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const { checkLogin } = require('../utils/authHandler');
 const inventoryModel = require('../schemas/inventories');
 const reservationModel = require('../schemas/reservations');
+const cartModel = require('../schemas/carts');
 
 const router = express.Router();
 
@@ -115,6 +116,69 @@ router.post('/reserveItems', checkLogin, async function (req, res) {
     return handleError(res, error);
   } finally {
     session.endSession();
+  }
+});
+
+router.post('/reserveACart', checkLogin, async function (req, res) {
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+    let cart = await cartModel.findOne({ user: req.userId }).session(session);
+    if (!cart) {
+      cart = new cartModel({ user: req.userId, cartItems: [] });
+      await cart.save({ session });
+    }
+
+    const normalizedItems = normalizeItems(cart.cartItems);
+    const reservation = await createReservationInTx({
+      session,
+      userId: req.userId,
+      items: normalizedItems,
+      source: 'CART'
+    });
+
+    cart.cartItems = [];
+    await cart.save({ session });
+
+    await session.commitTransaction();
+    await reservation.populate('items.product');
+    return res.status(201).send(reservation);
+  } catch (error) {
+    await session.abortTransaction();
+    return handleError(res, error);
+  } finally {
+    session.endSession();
+  }
+});
+
+router.get('/', checkLogin, async function (req, res) {
+  try {
+    const reservations = await reservationModel
+      .find({ user: req.userId })
+      .sort({ createdAt: -1 })
+      .populate('items.product');
+    return res.status(200).send(reservations);
+  } catch (error) {
+    return handleError(res, error);
+  }
+});
+
+router.get('/:id', checkLogin, async function (req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).send({ message: 'reservation not found' });
+    }
+
+    const reservation = await reservationModel
+      .findOne({ _id: req.params.id, user: req.userId })
+      .populate('items.product');
+
+    if (!reservation) {
+      return res.status(404).send({ message: 'reservation not found' });
+    }
+    return res.status(200).send(reservation);
+  } catch (error) {
+    return handleError(res, error);
   }
 });
 
