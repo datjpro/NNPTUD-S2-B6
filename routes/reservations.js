@@ -151,6 +151,54 @@ router.post('/reserveACart', checkLogin, async function (req, res) {
   }
 });
 
+router.post('/cancelReserve/:id', checkLogin, async function (req, res) {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(404).send({ message: 'reservation not found' });
+  }
+
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+    const reservation = await reservationModel
+      .findOne({ _id: req.params.id, user: req.userId })
+      .session(session);
+
+    if (!reservation) {
+      throw new HttpError(404, 'reservation not found');
+    }
+    if (reservation.status !== 'ACTIVE') {
+      throw new HttpError(409, 'reservation is not active');
+    }
+
+    for (const item of reservation.items) {
+      const result = await inventoryModel.updateOne(
+        {
+          product: item.product,
+          reserved: { $gte: item.quantity }
+        },
+        { $inc: { reserved: -item.quantity } },
+        { session }
+      );
+      if (result.modifiedCount !== 1) {
+        throw new HttpError(409, 'unable to cancel reservation');
+      }
+    }
+
+    reservation.status = 'CANCELED';
+    reservation.canceledAt = new Date();
+    await reservation.save({ session });
+
+    await session.commitTransaction();
+    await reservation.populate('items.product');
+    return res.status(200).send(reservation);
+  } catch (error) {
+    await session.abortTransaction();
+    return handleError(res, error);
+  } finally {
+    session.endSession();
+  }
+});
+
 router.get('/', checkLogin, async function (req, res) {
   try {
     const reservations = await reservationModel
